@@ -15,4 +15,10 @@ curl -LsSf https://astral.sh/uv/install.sh | sh
 brew install uv
 ```
 
+To (re-)generate the gRPC code from the `seniority.proto` file, run the following command:
+
+```bash
+uv run python -m grpc_tools.protoc -I=src/protobufs/ --python_out=src/ --grpc_python_out=src/ src/protobufs/seniority.proto
+```
+
 ## Usage
