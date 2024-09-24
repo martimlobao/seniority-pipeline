@@ -31,6 +31,9 @@ ignore = [
     "Q002",  # bad-quotes-docstring
     "Q003",  # avoidable-escaped-quote
     "W191",  # tab-indentation
+    "D",
+    "DOC",
+    "T201",
 ]
 
 [lint.per-file-ignores]
@@ -45,6 +48,9 @@ ignore = [
     "S101",  # assert
 ]
 "**/*_pb2*.py" = ["ALL"]
+
+[lint.pylint]
+max-args = 10
 
 [lint.pydocstyle]
 convention = "google"
