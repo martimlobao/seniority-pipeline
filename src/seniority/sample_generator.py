@@ -1,3 +1,5 @@
+"""Generate sample job postings for testing."""
+
 import argparse
 import json
 import random
@@ -138,7 +140,11 @@ locations = [
 
 
 def generate_job_posting(timestamp: int) -> dict:
-    """Generates a single job posting."""
+    """Generates a single job posting.
+
+    Returns:
+        dict: A single job posting.
+    """
     company = random.choice(companies)  # noqa: S311
     title = random.choice(titles)  # noqa: S311
     location = random.choice(locations)  # noqa: S311
@@ -178,6 +184,7 @@ def generate_job_postings(num_postings: int, postings_per_file: int, start_times
 
 
 def main() -> None:
+    """Main function to generate job postings."""
     parser = argparse.ArgumentParser(description="Generate job postings and store them in files.")
 
     parser.add_argument(

@@ -1,5 +1,6 @@
+"""Mock gRPC server to infer seniority levels based on company and title."""
+
 import asyncio
-import logging
 import time
 
 import grpc
@@ -8,15 +9,19 @@ import seniority_pb2
 import seniority_pb2_grpc
 from config import GRPC_HOST, GRPC_PORT
 
-logging.basicConfig(level=logging.INFO)
-
 
 class SeniorityModelServicer(seniority_pb2_grpc.SeniorityModelServicer):
+    """gRPC server to infer seniority levels based on company and title."""
     def InferSeniority(  # noqa: N802
         self,
         request: seniority_pb2.SeniorityRequestBatch,
         context: grpc.aio.ServicerContext,  # noqa: ARG002
     ) -> seniority_pb2.SeniorityResponseBatch:
+        """Infer seniority levels for a batch of company and title pairs.
+
+        Returns:
+            seniority_pb2.SeniorityResponseBatch: A batch of seniority levels
+        """
         responses: list[int] = []
         time.sleep(1)  # simulate max throughput of 1 batch request per second
         for seniority_request in request.batch:
@@ -31,6 +36,11 @@ class SeniorityModelServicer(seniority_pb2_grpc.SeniorityModelServicer):
 
     @staticmethod
     def mock_seniority_level(company: str, title: str) -> int:  # noqa: PLR0911
+        """Mock seniority level based on company and title.
+
+        Returns:
+            int: The seniority level
+        """
         # mocking the seniority level model for fun
         if "opc" in company.lower():
             return 7
@@ -61,6 +71,7 @@ async def serve() -> None:
 
 
 def main() -> None:
+    """Runs the gRPC server."""
     asyncio.run(serve())
 
 

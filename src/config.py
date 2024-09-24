@@ -1,4 +1,6 @@
-BUCKET: str = "quicklink-public"  # change this to "rl-data"
+"""Configuration file for the project."""
+
+BUCKET: str = "rl-data"  # use "quicklink-public" for testing
 DOWNLOAD_PREFIX: str = "job-postings-raw"
 UPLOAD_PREFIX: str = "job-postings-mod"
 

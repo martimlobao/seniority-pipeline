@@ -1,3 +1,5 @@
+"""Transfer module for streaming job postings to and from S3."""
+
 import asyncio
 from collections.abc import Iterator
 
@@ -13,7 +15,11 @@ S3_CLIENT: S3Client = boto3.client("s3")
 def list_new_files(
     *, bucket: str, prefix: str, since_timestamp: int = 0, s3_client: S3Client = S3_CLIENT
 ) -> list[str]:
-    """Lists new files in S3 that have not yet been ingested."""
+    """Lists new files in S3 that have not yet been ingested.
+
+    Returns:
+        list[str]: A list of new files to ingest.
+    """
     new_files: list[str] = []
     last_file_prefix: str = f"{prefix}/{since_timestamp}.jsonl"
     # only get back files after the last ingested file, this is must faster
@@ -41,6 +47,11 @@ def list_new_files(
 def get_postings_from_file(
     *, bucket: str, filepath: str, s3_client: S3Client = S3_CLIENT
 ) -> Iterator[JobPosting]:
+    """Reads job postings from a file in S3.
+
+    Yields:
+        Iterator[JobPosting]: A generator of job postings.
+    """
     obj: dict = s3_client.get_object(Bucket=bucket, Key=filepath)
     for line in obj["Body"].read().decode("utf-8").splitlines():
         yield JobPosting.model_validate_json(line)
@@ -54,6 +65,7 @@ def upload_postings_from_timestamp(
     postings: list[ProcessedJobPosting],
     s3_client: S3Client = S3_CLIENT,
 ) -> None:
+    """Uploads processed job postings to S3."""
     filepath: str = f"{prefix}/{timestamp}.jsonl"
     print(f"Uploading {len(postings)} processed job postings to s3://{bucket}/{filepath}")
     body: str = "\n".join([posting.model_dump_json() for posting in postings])
@@ -69,6 +81,7 @@ async def stream_new_postings(
     start_timestamp: int,
     s3_client: S3Client = S3_CLIENT,
 ) -> None:
+    """Streams new job postings from S3 to the ingestion queue."""
     while True:
         print(f"Checking for new files, last ingested timestamp: {start_timestamp}")
 

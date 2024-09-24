@@ -1,3 +1,5 @@
+"""Dataclasses for job postings and processed job postings."""
+
 from hashlib import sha256
 
 from pydantic import BaseModel
@@ -13,6 +15,13 @@ class JobPosting(BaseModel):
     scraped_on: int
 
     def __hash__(self) -> int:
+        """Generates a hash based on the job posting fields.
+
+        Note that this hash remains constant for the processed job posting.
+
+        Returns:
+            int: Hash value of the job posting.
+        """
         # use only these fields for hashing so that the hash does not change
         # when we add seniority
         return hash((self.url, self.company, self.title, self.location, self.scraped_on))

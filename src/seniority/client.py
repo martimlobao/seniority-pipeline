@@ -1,3 +1,5 @@
+"""Client to interact with the gRPC server and run the ingestion pipeline."""
+
 import asyncio
 from collections import defaultdict
 
@@ -24,6 +26,7 @@ LOG_PRINT_INTERVAL = 100
 
 
 class SeniorityClient:
+    """Client to interact with the Seniority gRPC server."""
     def __init__(
         self,
         *,
@@ -48,6 +51,11 @@ class SeniorityClient:
         await asyncio.gather(ingestion_task, inference_task, save_task)
 
     async def consume_ingestion_queue(self, batch_size: int) -> None:
+        """Consumes the ingestion_queue.
+
+        The data is sent to the inference_queue if not found in the cache,
+        otherwise it is sent directly to the save_queue.
+        """
         cache_read_dict: dict[str, list[JobPosting]] = defaultdict(list)
         while True:
             job_posting = await self.ingestion_queue.get()
@@ -72,6 +80,11 @@ class SeniorityClient:
             self.ingestion_queue.task_done()
 
     async def consume_inference_queue(self, batch_size: int) -> None:
+        """Consumes the inference_queue and sends data to the gRPC server.
+
+        The data is sent in batches of size `batch_size` to the gRPC server for
+        performance and to reduce the number of calls to the server.
+        """
         inference_dict: dict[str, list[JobPosting]] = defaultdict(list)
         cache_write_dict: dict[str, int] = {}
         while True:
@@ -104,8 +117,8 @@ class SeniorityClient:
     async def consume_save_queue(self) -> None:
         """Consumes the save_queue and uploads files to S3.
 
-        Monitor save_queue and save_hash_queue concurrently, and upload files
-        once all records are ready.
+        Monitor `save_queue` and `save_hash_queue` concurrently, and upload
+        files once all records are ready.
         """
         # store processed records organized by file of origin
         pending_files: dict[int, set[ProcessedJobPosting]] = defaultdict(set)
@@ -153,6 +166,7 @@ class SeniorityClient:
 
 
 async def subscribe() -> None:
+    """Subscribe to new job postings and process them."""
     # create Redis client
     redis_client = redis.Redis(host=REDIS_HOST, port=REDIS_PORT, decode_responses=True)
 
@@ -186,6 +200,7 @@ async def subscribe() -> None:
 
 
 def main() -> None:
+    """Runs the ingestion pipeline."""
     asyncio.run(subscribe())
 
 
