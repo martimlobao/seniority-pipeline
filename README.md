@@ -56,6 +56,16 @@ uv run sample
 uv run sample --total 20000 --split 7000
 ```
 
+## Design
+
+The data pipeline consists of four parts: downloading the data, retrieving the cached seniority levels, inferring the seniority levels for new company-title pairs, and uploading the data back to S3. In order to handle large amounts of data as quickly and efficiently as possible, the pipeline uses asynchronous processing to send data between the different components.
+
+There are two main components to the pipeline: the data downloader and the data processor. These run simultaneously and share two queues: the ingestion queue (where each raw job posting is sent) and the record hash queue (containing metadata on which postings belong in which file). Once the data is picked up by the processor, it is grouped into batches of 1000 and sent to the caching layer to retrieve the seniority levels. This is done to reduce the number of API calls to Redis in order to be more efficient. After this, the records that returned a cache hit are modified and sent to the save queue and the ones that returned a cache miss are sent to the inference queue.
+
+The inference queue is consumed by the `consume_inference_queue` method, which also batches the data into groups of 1000 and sends them to the gRPC server. Once the server returns the data, the postings are also modified to include the inferred seniority levels and sent to the save queue. Additionally, the the returned seniority levels are written to the caching layer in a single batch, where each key is a hash of the company and title and the value is the corresponding seniority level.
+
+Finally, the data is read from the save queue, as well as the record hash queue, and uploaded to S3. Since we cannot append data to files in S3, all of the records are collected together and only uploaded once all the job postings from the original file are present.
+
 
 ## Design Decisions and Comments
 
