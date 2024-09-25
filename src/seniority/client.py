@@ -22,11 +22,12 @@ from transfer import stream_new_postings, upload_postings_from_timestamp
 
 CACHE_BATCH_SIZE = 1000
 INFERENCE_BATCH_SIZE = 1000
-LOG_PRINT_INTERVAL = 100
+LOG_PRINT_INTERVAL = 2000
 
 
 class SeniorityClient:
     """Client to interact with the Seniority gRPC server."""
+
     def __init__(
         self,
         *,
@@ -57,8 +58,12 @@ class SeniorityClient:
         otherwise it is sent directly to the save_queue.
         """
         cache_read_dict: dict[str, list[JobPosting]] = defaultdict(list)
+        count = 0
         while True:
             job_posting = await self.ingestion_queue.get()
+            count += 1
+            if count % LOG_PRINT_INTERVAL == 0:
+                print(f"Processed {count} total records")
             cache_key = job_posting.cache_key
             cache_read_dict[cache_key].append(job_posting)
             if len(cache_read_dict) >= batch_size or self.ingestion_queue.empty():
@@ -127,11 +132,12 @@ class SeniorityClient:
 
         # process the save_queue (records ready to be saved)
         async def process_save_queue() -> None:
+            upload_tasks = set()
             process_count = 0
             while True:
                 posting = await self.save_queue.get()
                 process_count += 1
-                if process_count % 100 == 0:
+                if process_count % LOG_PRINT_INTERVAL == 0:
                     print(f"Processed {process_count} total records")
                     print("Records still needed for each timestamped file:")
                     for filename, missing_hashes_set in missing_hashes_dict.items():
@@ -145,12 +151,20 @@ class SeniorityClient:
 
                         # upload file once all postings are collected
                         if not missing_hashes_set:
-                            upload_postings_from_timestamp(
-                                bucket=BUCKET,
-                                prefix=UPLOAD_PREFIX,
-                                timestamp=filename,
-                                postings=pending_files[filename],
+                            # offload the upload task to a background thread
+                            upload_task = asyncio.create_task(
+                                upload_postings_from_timestamp(
+                                    bucket=BUCKET,
+                                    prefix=UPLOAD_PREFIX,
+                                    timestamp=filename,
+                                    postings=pending_files[filename],
+                                )
                             )
+                            # create a reference to task to avoid garbage
+                            # collection
+                            # see: https://textual.textualize.io/blog/2023/02/11/the-heisenbug-lurking-in-your-async-code/
+                            upload_tasks.add(upload_task)
+                            upload_task.add_done_callback(upload_tasks.discard)
 
                 self.save_queue.task_done()
 
@@ -182,8 +196,8 @@ async def subscribe() -> None:
             ingestion_queue=ingestion_queue,
             save_hash_queue=save_hash_queue,
         )
-        start_timestamp = 0
 
+        start_timestamp = 0
         # run downloader and client in parallel
         downloader_task = asyncio.create_task(
             stream_new_postings(

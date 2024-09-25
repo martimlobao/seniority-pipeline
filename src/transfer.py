@@ -1,7 +1,7 @@
 """Transfer module for streaming job postings to and from S3."""
 
 import asyncio
-from collections.abc import Iterator
+from collections.abc import AsyncIterable
 
 import boto3
 from mypy_boto3_s3.client import S3Client
@@ -44,20 +44,23 @@ def list_new_files(
     return sorted(new_files, key=lambda filename: int(filename.split("/")[-1].split(".")[0]))
 
 
-def get_postings_from_file(
+async def get_postings_from_file(
     *, bucket: str, filepath: str, s3_client: S3Client = S3_CLIENT
-) -> Iterator[JobPosting]:
+) -> AsyncIterable[JobPosting]:
     """Reads job postings from a file in S3.
 
     Yields:
         Iterator[JobPosting]: A generator of job postings.
     """
     obj: dict = s3_client.get_object(Bucket=bucket, Key=filepath)
-    for line in obj["Body"].read().decode("utf-8").splitlines():
+    # load the data in a separate thread to avoid blocking the event loop
+    data = await asyncio.to_thread(obj["Body"].read)
+
+    for line in data.decode("utf-8").splitlines():
         yield JobPosting.model_validate_json(line)
 
 
-def upload_postings_from_timestamp(
+async def upload_postings_from_timestamp(
     *,
     bucket: str,
     prefix: str,
@@ -69,7 +72,13 @@ def upload_postings_from_timestamp(
     filepath: str = f"{prefix}/{timestamp}.jsonl"
     print(f"Uploading {len(postings)} processed job postings to s3://{bucket}/{filepath}")
     body: str = "\n".join([posting.model_dump_json() for posting in postings])
-    s3_client.put_object(Bucket=bucket, Key=filepath, Body=body)
+    await asyncio.to_thread(
+        s3_client.put_object,  # The S3 client method to be called in a separate thread
+        Bucket=bucket,  # Arguments to pass to the S3 put_object call
+        Key=filepath,
+        Body=body,
+    )
+    print(f"Finished uploading s3://{bucket}/{filepath}")
 
 
 async def stream_new_postings(
@@ -100,7 +109,7 @@ async def stream_new_postings(
             print(f"Found new file to ingest: {filepath}")
             timestamp: int = int(filepath.split("/")[-1].split(".")[0])
             hashes: list[int] = []
-            for posting in get_postings_from_file(
+            async for posting in get_postings_from_file(
                 bucket=bucket, filepath=filepath, s3_client=s3_client
             ):
                 await ingestion_queue.put(posting)
@@ -109,4 +118,6 @@ async def stream_new_postings(
             # the hash for the original posting must match the hash for the
             # processed one
             await save_hash_queue.put((timestamp, hashes))
+            print(f"Finished ingesting file: {filepath}")
+
         start_timestamp = timestamp

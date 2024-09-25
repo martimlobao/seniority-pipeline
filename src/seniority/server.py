@@ -12,6 +12,7 @@ from config import GRPC_HOST, GRPC_PORT
 
 class SeniorityModelServicer(seniority_pb2_grpc.SeniorityModelServicer):
     """gRPC server to infer seniority levels based on company and title."""
+
     def InferSeniority(  # noqa: N802
         self,
         request: seniority_pb2.SeniorityRequestBatch,

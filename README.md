@@ -110,3 +110,5 @@ uv run server
 # Run the pipeline
 uv run client
 ```
+
+Using a full cache, the entire processing pipeline for 200,000 postings runs in under 5 seconds, with the main blocking factor being network speed, limiting how fast it is able to download and upload the data to S3.
