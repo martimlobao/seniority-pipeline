@@ -2,7 +2,9 @@
 
 ## Overview
 
-This project is a data pipeline that processes data from a CSV file and loads it into a PostgreSQL database. The data is then used to generate a report that shows the average seniority of employees in each department.
+This project is a data pipeline that processes job posting data from JSONL files stored in S3, appends a seniority level to each record by calling an inference model via a gRPC endpoint, and then uploads the data back into S3. The pipeline also includes a caching layer to minimize the number of calls to the inference model.
+
+Additional context and requirements can be found in the [assignment](ASSIGNMENT.md).
 
 ## Installation
 
